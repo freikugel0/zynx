@@ -19,14 +19,27 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
-import { registerAction } from "../actions";
 import { toast } from "sonner";
 import InputPassword from "@/components/inputs/input-password";
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8081/api/v1";
+
+async function registerRequest(payload: RegisterPayload) {
+  const res = await fetch(`${API_URL}/auth/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include", // tidak wajib di sini, tapi aman ditambahkan
+    body: JSON.stringify(payload),
+  });
+
+  const json = await res.json().catch(() => ({}));
+  return { ok: res.ok, status: res.status, ...json };
+}
 
 export default function RegisterPage() {
   const router = useRouter();
 
-  const form = useForm({
+  const form = useForm<RegisterPayload>({
     resolver: zodResolver(registerSchema),
     mode: "onChange",
     defaultValues: {
@@ -39,18 +52,23 @@ export default function RegisterPage() {
   });
 
   const { mutate: register, isPending: registerIsPending } = useMutation({
-    mutationFn: registerAction,
+    mutationFn: registerRequest,
     onSuccess: (res) => {
       if (res.ok) {
         toast.success("Register Success", {
-          description: `${res?.data?.email} is successfully registered`,
+          description: `${res?.data?.email} successfully registered. Please verify your email before login.`,
         });
         router.replace("/verify-email");
       } else {
         toast.error("Register Failed", {
-          description: res.message,
+          description: res.message ?? "Something went wrong",
         });
       }
+    },
+    onError: (err: any) => {
+      toast.error("Register Failed", {
+        description: err?.message ?? "Network error",
+      });
     },
   });
 
@@ -60,6 +78,7 @@ export default function RegisterPage() {
 
   return (
     <div className="flex flex-col gap-4">
+      {/* Header */}
       <div className="flex flex-col items-center gap-2">
         <div className="p-2 bg-primary rounded-xl">
           <Image
@@ -75,6 +94,8 @@ export default function RegisterPage() {
           <span>Sign up to start creating your digital card</span>
         </div>
       </div>
+
+      {/* Form */}
       <div className="rounded-2xl p-6 shadow-xl flex flex-col gap-4 min-w-md">
         <Form {...form}>
           <div className="flex flex-col gap-4">
@@ -91,6 +112,7 @@ export default function RegisterPage() {
                 </FormItem>
               )}
             />
+
             <FormField
               control={form.control}
               name="username"
@@ -104,6 +126,7 @@ export default function RegisterPage() {
                 </FormItem>
               )}
             />
+
             <FormField
               control={form.control}
               name="email"
@@ -112,7 +135,7 @@ export default function RegisterPage() {
                   <FormLabel>Email</FormLabel>
                   <FormControl>
                     <Input
-                      type="text"
+                      type="email"
                       placeholder="name@example.com"
                       {...field}
                     />
@@ -121,6 +144,7 @@ export default function RegisterPage() {
                 </FormItem>
               )}
             />
+
             <FormField
               control={form.control}
               name="password"
@@ -137,6 +161,7 @@ export default function RegisterPage() {
                 </FormItem>
               )}
             />
+
             <FormField
               control={form.control}
               name="confirmPassword"
@@ -155,6 +180,8 @@ export default function RegisterPage() {
             />
           </div>
         </Form>
+
+        {/* Submit */}
         <Button
           type="button"
           onClick={form.handleSubmit(onSubmit)}
@@ -163,6 +190,7 @@ export default function RegisterPage() {
           {registerIsPending && <Spinner />}
           Submit
         </Button>
+
         <span className="text-center">
           Already have an account?{" "}
           <Link href={"/login"} className="underline">

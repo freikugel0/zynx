@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 type User = { id: string; email: string; name: string };
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+const API_URL  = process.env.NEXT_PUBLIC_API_URL  || "http://localhost:8081";
 
 const NavItem = ({ href, label }: { href: string; label: string }) => (
   <Link
@@ -70,8 +71,31 @@ export default function DashboardPage() {
   const [isDark, setIsDark] = useState(false);
 
   useEffect(() => {
-    const raw = localStorage.getItem("user");
-    if (raw) { try { setUser(JSON.parse(raw)); } catch {} }
+    (async () => {
+      try {
+        const r = await fetch(`${API_URL}/auth/me`, {
+          method: "GET",
+          credentials: "include",
+        });
+        if (r.ok) {
+          const json = await r.json();
+          const d = json.data ?? json;
+          const mapped: User = {
+            id: String(d.id),
+            email: d.email,
+            name: d.fullName || d.username || "User",
+          };
+          setUser(mapped);
+          localStorage.setItem("user", JSON.stringify(mapped));
+        } else {
+          const raw = localStorage.getItem("user");
+          if (raw) setUser(JSON.parse(raw));
+        }
+      } catch {
+        const raw = localStorage.getItem("user");
+        if (raw) setUser(JSON.parse(raw));
+      }
+    })();
 
     const root = document.documentElement;
     const sync = () => setIsDark(root.classList.contains("dark"));
@@ -83,10 +107,11 @@ export default function DashboardPage() {
 
   const profileUrl = useMemo(() => `${SITE_URL}/u/${user?.id ?? "me"}`, [user?.id]);
 
-  const handleLogout = () => {
-    localStorage.removeItem("token");
+  const handleLogout = async () => {
+    try {
+      await fetch(`${API_URL}/auth/logout`, { method: "POST", credentials: "include" });
+    } catch {}
     localStorage.removeItem("user");
-    localStorage.removeItem("onboarding:complete");
     window.location.href = "/login";
   };
 
@@ -134,7 +159,6 @@ export default function DashboardPage() {
               <h1 className="text-xl md:text-2xl font-semibold">
                 Selamat Datang, {user?.name?.split(" ")?.[0] ?? "Friend"}
               </h1>
-              {/* <p className="text-sm text-black/60 dark:text-white/60">Your key metrics at a glance.</p> */}
             </div>
             <button
               onClick={handleLogout}
@@ -178,7 +202,12 @@ export default function DashboardPage() {
                 action={<Link href="/links" className="text-sm link-muted">View All</Link>}
               >
                 <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                  {social.map((s) => (
+                  {[
+                    { key: "instagram", label: "Instagram", handle: "@your_ig", href: "https://instagram.com/your_ig" },
+                    { key: "linkedin",  label: "LinkedIn",  handle: "your-name", href: "https://linkedin.com/in/your-name" },
+                    { key: "tiktok",    label: "TikTok",    handle: "@your_tt", href: "https://tiktok.com/@your_tt" },
+                    { key: "x",         label: "X (Twitter)", handle: "@your_x", href: "https://x.com/your_x" },
+                  ].map((s) => (
                     <a
                       key={s.key}
                       href={s.href}

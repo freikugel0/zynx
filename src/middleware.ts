@@ -4,7 +4,7 @@ export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const isAuthPage = pathname === "/login" || pathname === "/register";
   const isDashboard = pathname.startsWith("/dashboard");
-  const token = req.cookies.get("access_token")?.value;
+  const token = req.cookies.get("token")?.value;
 
   if (token && isAuthPage) {
     const url = req.nextUrl.clone();
